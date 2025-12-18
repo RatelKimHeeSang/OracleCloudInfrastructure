@@ -66,8 +66,8 @@ variable "tf_pub_vm_A" {
   default = {
     display_name : "TF_pub_vm-A"
     assign_public_ip : true
-    availability_domain : "PYHM:AP-CHUNCHEON-1-AD-1"
-    image_ocid : "ocid1.image.oc1.ap-chuncheon-1.aaaaaaaacr4f7w5qkpt3cevei7zyrxj4lzclcda5vg4bepizittmdenf456q"
+    availability_domain : "PYHM:AP-SEOUL-1-AD-1"
+    image_ocid : "ocid1.image.oc1.ap-seoul-1.aaaaaaaalytgp6s5qmg7idrgl6m3k7g3vsbjtzomtz72mwychrassasc2ifa"
     shape : {
       name          = "VM.Standard.E4.Flex"
       ocpus         = 2
