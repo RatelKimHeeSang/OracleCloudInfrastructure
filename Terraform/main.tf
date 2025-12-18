@@ -1,8 +1,4 @@
 # main.tf
-locals {
-  cmpt_name_prefix = "A506"
-  time_f           = formatdate("HHmmss", timestamp())
-}
 
 ############################################
 # Compartments
@@ -11,7 +7,7 @@ resource "oci_identity_compartment" "example_compartment" {
   # Required
   compartment_id = var.compartment_id
   description    = var.compartment_description
-  name           = "${local.cmpt_name_prefix}-${var.compartment_name}-${local.time_f}"
+  name           = "${var.compartment_name}-${formatdate("YYYYMMDDhhmmss", timestamp())}"
 }
 
 ############################################
@@ -87,13 +83,9 @@ resource "oci_core_instance" "tf_pub_vm-A" {
     source_type = "image"
   }
 
-  dynamic "shape_config" {
-    for_each = [true]
-    content {
-      #Optional
-      memory_in_gbs = var.tf_pub_vm_A.shape.memory_in_gbs
-      ocpus         = var.tf_pub_vm_A.shape.ocpus
-    }
+  shape_config {
+    ocpus         = var.tf_pub_vm_A.shape.ocpus
+    memory_in_gbs = var.tf_pub_vm_A.shape.memory_in_gbs
   }
 
   create_vnic_details {
