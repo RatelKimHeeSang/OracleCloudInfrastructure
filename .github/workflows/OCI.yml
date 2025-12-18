@@ -2,57 +2,75 @@ name: Create OCI With Terraform
 on:
   workflow_dispatch:
 
-jobs: 
+concurrency:
+  group: oci-terraform-deploy
+  cancel-in-progress: false
+
+jobs:
   OCI-IaC-Deployment:
     runs-on: ubuntu-latest
     defaults:
       run:
         shell: bash
         working-directory: Terraform
+
     steps:
-      - name: 'Checkout'
-        uses: actions/checkout@v2
-          
-      - name: 'Write Config & Key Files'
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 1) Terraform 설치 (필수)
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.6
+
+      - name: Verify Terraform
         run: |
-          mkdir ~/.oci
-          echo "[DEFAULT]" >> ~/.oci/config
-          echo "user=${{secrets.OCI_USER_OCID}}" >> ~/.oci/config
-          echo "fingerprint=${{secrets.OCI_FINGERPRINT}}" >> ~/.oci/config
-          echo "region=${{secrets.OCI_REGION}}" >> ~/.oci/config
-          echo "tenancy=${{secrets.OCI_TENANCY_OCID}}" >> ~/.oci/config
-          echo "key_file=~/.oci/key.pem" >> ~/.oci/config
-          echo "${{secrets.OCI_KEY_FILE}}" >> ~/.oci/key.pem
-      
-      - name: 'Install OCI CLI'
+          which terraform
+          terraform version
+
+      # 2) OCI Config/Key 파일 생성 (안정화)
+      - name: Write OCI Config & Key Files
         run: |
+          set -euo pipefail
+          mkdir -p ~/.oci
+
+          cat > ~/.oci/config <<EOF
+          [DEFAULT]
+          user=${{ secrets.OCI_USER_OCID }}
+          fingerprint=${{ secrets.OCI_FINGERPRINT }}
+          region=${{ secrets.OCI_REGION }}
+          tenancy=${{ secrets.OCI_TENANCY_OCID }}
+          key_file=~/.oci/key.pem
+          EOF
+
+          # secret에 PEM 전체가 들어있다는 전제
+          echo "${{ secrets.OCI_KEY_FILE }}" > ~/.oci/key.pem
+
+          chmod 600 ~/.oci/config ~/.oci/key.pem
+
+      # 3) OCI CLI 설치 (선택이지만 유지)
+      - name: Install OCI CLI
+        run: |
+          set -euo pipefail
           curl -L -O https://raw.githubusercontent.com/oracle/oci-cli/master/scripts/install/install.sh
           chmod +x install.sh
           ./install.sh --accept-all-defaults
           echo "/home/runner/bin" >> $GITHUB_PATH
-          exec -l $SHELL
-      
-      - name: 'Fix OCI Config File Permissions'
+
+      - name: Verify OCI CLI
         run: |
-          oci setup repair-file-permissions --file /home/runner/.oci/config
-          oci setup repair-file-permissions --file /home/runner/.oci/key.pem
+          oci --version
+          oci iam region list --output table || true
 
       - name: Terraform Init
-        id: init
         run: terraform init
-        
+
       - name: Terraform Validate
-        id: validate
         run: terraform validate
-  
+
       - name: Terraform Plan
-        id: plan
-        run: terraform plan
-        continue-on-error: true
-  
-      - name: Terraform Plan Status
-        if: steps.plan.outcome == 'failure'
-        run: exit 1
+        run: terraform plan -out=tfplan
 
       - name: Terraform Apply
-        run: terraform apply -auto-approve
+        run: terraform apply -auto-approve tfplan
